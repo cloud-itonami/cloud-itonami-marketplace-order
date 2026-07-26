@@ -31,16 +31,21 @@
   alter a payout or a pick list.
 
   The ledger stays append-only."
-  (:require [marketplace.catalog :as catalog]
+  (:require [marketplace.buyer :as buyer]
+            [marketplace.catalog :as catalog]
             [marketplace.order :as order]
+            [marketplace.persist :as persist]
             [marketplace.seller :as seller]))
 
 (defprotocol Store
+  (buyer-account [s buyer-id] "Buyer account, or nil.")
+  (all-buyer-accounts [s])
   (seller-credential [s seller-id] "Issued credential from -onboarding, or nil.")
   (all-seller-credentials [s])
   (offer-record [s offer-id] "Catalog offer, or nil.")
   (all-offer-records [s])
   (order-record [s order-id] "Multi-seller order, or nil.")
+  (durable? [s] "False for the test-only memory backend.")
   (all-order-records [s])
   (delivered? [s order-id seller] "Courier/fulfillment delivery confirmation.")
   (ledger [s])
@@ -63,6 +68,18 @@
                :evidence/aml-status :clear
                :evidence/ekyc-complete? true}}))
 
+(defn- demo-buyers []
+  {"buyer-1" (buyer/account {:id "buyer-1" :contact "buyer1@example.test"
+                             :level :guest :country "JPN"
+                             :addresses [(buyer/address
+                                          {:line1 "1-2-3 Shibuya" :city "Tokyo"
+                                           :postal-code "150-0002" :country "JPN"
+                                           :recipient "山田太郎"})]})
+   ;; A guest with no address: fine for a digital order, refused for a
+   ;; physical one -- the asymmetry marketplace.buyer exists to express.
+   "buyer-2" (buyer/account {:id "buyer-2" :contact "buyer2@example.test"
+                             :level :guest})})
+
 (defn demo-data
   "Fixtures covering the happy path and each hard check.
 
@@ -77,7 +94,8 @@
                            :price-minor 1100 :currency "JPY" :quantity 5})
         og (catalog/offer {:product product :seller "merchant.gamma"
                            :price-minor 900 :currency "JPY" :quantity 3})]
-    {:sellers {"merchant.alpha" (cred "merchant.alpha" true)
+    {:buyers (demo-buyers)
+     :sellers {"merchant.alpha" (cred "merchant.alpha" true)
                "merchant.beta"  (cred "merchant.beta" true)
                "merchant.gamma" (cred "merchant.gamma" false)}
      :offers (into {} (map (juxt :offer/id identity) [oa ob og]))
@@ -88,6 +106,9 @@
 
 (defrecord MemStore [a]
   Store
+  (buyer-account [_ id] (get-in @a [:buyers id]))
+  (all-buyer-accounts [_] (sort-by :buyer/id (vals (:buyers @a))))
+  (durable? [_] false)
   (seller-credential [_ id] (get-in @a [:sellers id]))
   (all-seller-credentials [_] (sort-by :seller/id (vals (:sellers @a))))
   (offer-record [_ id] (get-in @a [:offers id]))
@@ -126,9 +147,66 @@
   (->MemStore (atom (assoc (demo-data) :ledger [] :order-log []))))
 
 (defn mem-store [m]
-  (->MemStore (atom (merge {:sellers {} :offers {} :orders {} :deliveries {}
+  (->MemStore (atom (merge {:buyers {} :sellers {} :offers {} :orders {} :deliveries {}
                             :ledger [] :order-log []}
                            m))))
+
+;; ----------------------------- durable store -----------------------------
+
+(defrecord KotobaseStore [st seed]
+  Store
+  (buyer-account [_ id] (persist/get-doc (persist/ctx st :buyer :buyer/id) id))
+  (all-buyer-accounts [_] (persist/all-docs (persist/ctx st :buyer :buyer/id)))
+  (durable? [_] (not (:persist/memory? st)))
+  (seller-credential [_ id] (persist/get-doc (persist/ctx st :seller :seller/id) id))
+  (all-seller-credentials [_] (persist/all-docs (persist/ctx st :seller :seller/id)))
+  (offer-record [_ id] (persist/get-doc (persist/ctx st :offer :offer/id) id))
+  (all-offer-records [_] (persist/all-docs (persist/ctx st :offer :offer/id)))
+  (order-record [_ id] (persist/get-doc (persist/ctx st :order :order/id) id))
+  (all-order-records [_] (persist/all-docs (persist/ctx st :order :order/id)))
+  (delivered? [_ oid sel]
+    (boolean (:delivered (persist/get-doc (persist/ctx st :delivery :id)
+                                          (str oid "/" sel)))))
+  (ledger [_] (persist/read-events (persist/stream-ctx st :ledger)))
+  (order-log [_] (persist/read-events (persist/stream-ctx st :order-log)))
+  (commit-record! [this record]
+    (persist/append-event! (persist/stream-ctx st :order-log) seed record)
+    (let [{:keys [op value]} record]
+      (case op
+        :place-order
+        (when-let [o (:order value)]
+          (persist/put-doc! (persist/ctx st :order :order/id) o))
+
+        (:advance-sub-order :cancel-sub-order)
+        (let [{:keys [order-id seller to]} value]
+          (when-let [o (order-record this order-id)]
+            (when-let [o' (order/advance-sub-order o seller to)]
+              (persist/put-doc! (persist/ctx st :order :order/id) o')
+              (when (= :delivered to)
+                (persist/put-doc! (persist/ctx st :delivery :id)
+                                  {:id (str order-id "/" seller) :delivered true})))))
+        nil))
+    record)
+  (append-ledger! [_ fact]
+    (persist/append-event! (persist/stream-ctx st :ledger) seed fact))
+  (with-orders [this orders]
+    (doseq [o (vals orders)] (persist/put-doc! (persist/ctx st :order :order/id) o))
+    this))
+
+(defn kotobase-store
+  "A durable store over a HOST-INJECTED database API.
+
+  `db-api` is the four `kotobase.core` operations the host partials onto
+  an already-open database; `marketplace.persist/store` throws when it
+  is missing or partial, per the policy's
+  `:policy/fail-closed-without-host-injection`. This actor therefore
+  cannot come up durable-looking but writing to nothing.
+
+  `seq-fn` supplies the ledger ordinal. It is the host's because a count
+  would be a read-modify-write two concurrent appends would collide on."
+  [{:keys [db-api seq-fn]}]
+  (->KotobaseStore (persist/store {:db-api db-api :actor "orderops"})
+                   (or seq-fn (let [n (atom 0)] #(swap! n inc)))))
 
 ;; ----------------------------- derived views -----------------------------
 

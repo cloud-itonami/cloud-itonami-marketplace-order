@@ -55,6 +55,7 @@
   is what settlement independently re-checks before releasing anything."
   (:require [clojure.string :as str]
             [kotoba.okaimono :as ok]
+            [marketplace.buyer :as buyer]
             [marketplace.order :as order]
             [orderops.store :as store]))
 
@@ -170,6 +171,49 @@
                                                (:okaimono/status (order/sub-order o seller))
                                                #{})) ")")}]))))
 
+(defn- buyer-violations
+  "For `:place-order`: the buyer must exist and be allowed to place THIS
+  order under the operator's stated requirements.
+
+  `:require-level` and `:needs-shipping?` come from `context`, not from
+  a constant here. `marketplace.buyer` is explicit that there is no
+  built-in 'over ¥X needs ID' rule, because that threshold is a
+  jurisdiction- and product-specific operator decision; baking one in
+  would impose it on every deployment.
+
+  A `:guest` with only a contact string is a perfectly good buyer for a
+  digital order. What refuses is a PHYSICAL order with no address in the
+  destination -- a parcel with nowhere to go."
+  [proposal st context]
+  (when (= :place-order (:op proposal))
+    (let [bid (get-in proposal [:value :buyer])
+          b (store/buyer-account st bid)]
+      (if-not b
+        [{:rule :buyer-unknown
+          :detail (str (or bid "(buyer missing)") " は登録されていない買い手")}]
+        (when-let [errs (seq (buyer/purchase-errors
+                              b {:require-level (:require-level context :guest)
+                                 :needs-shipping? (:needs-shipping? context true)
+                                 :destination (:destination context)}))]
+          (mapv (fn [e] {:rule (:buyer.error/code e)
+                         :detail (or (:buyer.error/detail e)
+                                     (str (:buyer.error/field e))
+                                     (name (:buyer.error/code e)))})
+                errs))))))
+
+(defn- pii-violations
+  "A proposal must not embed an un-redacted buyer.
+
+  Everything a proposal carries lands in an APPEND-ONLY ledger. A street
+  address written there cannot be scrubbed later, and it will also reach
+  whatever LLM context the advisor runs in. `marketplace.buyer/redact`
+  exists for exactly this, and this check is what makes using it
+  non-optional rather than a convention someone forgets."
+  [proposal]
+  (when (buyer/leaks-pii? (select-keys proposal [:summary :rationale :cites :value]))
+    [{:rule :proposal-leaks-pii
+      :detail "提案に未マスクの買い手情報が含まれる -- 追記専用台帳には後から消せない"}]))
+
 (defn- effect-not-propose-violations [proposal]
   (when (not= :propose (:effect proposal))
     [{:rule :effect-not-propose
@@ -196,6 +240,8 @@
   (let [now (:now context)
         hard (into []
                    (concat (unknown-offer-violations proposal store)
+                           (buyer-violations proposal store context)
+                           (pii-violations proposal)
                            (unsellable-seller-violations proposal store now)
                            (malformed-order-violations proposal store)
                            (illegal-transition-violations proposal store)
