@@ -1,0 +1,9 @@
+;; The order actor's D1 host Worker. :esm, same shape as
+;; gftdcojp/nexus-x402's own worker build.
+{:deps {:aliases [:cljs]}
+ :builds
+ {:worker
+  {:target :esm
+   :output-dir "dist"
+   :modules {:worker {:exports {default orderops.edge.worker/app}}}
+   :compiler-options {:output-feature-set :es2020 :infer-externs :auto}}}}

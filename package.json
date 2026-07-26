@@ -1,0 +1,14 @@
+{
+  "name": "cloud-itonami-marketplace-order",
+  "private": true,
+  "comment": "shadow-cljs compiles src/orderops/edge/worker.cljs -> dist/worker.js, the D1 host for the order actor.",
+  "scripts": {
+    "build": "shadow-cljs release worker",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "@noble/hashes": "^2.2.0",
+    "shadow-cljs": "^2.28.20",
+    "wrangler": "^4.0.0"
+  }
+}

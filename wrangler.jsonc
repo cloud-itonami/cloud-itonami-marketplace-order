@@ -1,0 +1,17 @@
+{
+  "name": "cloud-itonami-marketplace-order",
+  "main": "dist/worker.js",
+  "compatibility_date": "2026-07-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cloud-itonami-marketplace",
+      "database_id": "fa61e3d2-25de-48d0-8697-43e3f2e16198"
+    }
+  ]
+  // ORDER_WRITE_TOKEN is a SECRET (`wrangler secret put ORDER_WRITE_TOKEN`),
+  // never placed here. Reads are open; placing an order is gated, because a
+  // public unauthenticated write endpoint on a durable store is not a demo.
+}

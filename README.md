@@ -93,10 +93,72 @@ settlement actor before it releases anything.
 settlement plan that may already exist and an escrow that may already be
 open, so it **always** escalates.
 
+## Buyer accounts, and the asymmetry with sellers
+
+A seller RECEIVES money, so admitting one is a regulated act carrying
+eKYC and AML. A buyer SPENDS their own money on a book. So the buyer
+gate asks how little is needed, not how much can be verified:
+`:require-level` and `:needs-shipping?` come from context, and there is
+no built-in "over ¥X needs ID" rule — that threshold is a jurisdiction-
+and product-specific operator decision.
+
+A `:guest` with only a contact string buys a digital order fine. The
+same buyer is refused a physical one, because a parcel needs somewhere
+to go.
+
+**A proposal embedding an un-redacted buyer is a HARD block.** Everything
+a proposal carries lands in an append-only ledger and in whatever LLM
+context the advisor runs in, and a street address written there cannot
+be scrubbed later. `marketplace.buyer/redact` exists for this; the check
+is what makes using it non-optional rather than a convention someone
+forgets.
+
+## Durable storage, and the host that provides it
+
+`org-database-policy.edn` puts D1 transport, ref selection, CACAO,
+encryption, blind indexing and secrets in the **host**, and leaves
+datoms, queries and domain schema to the **application**.
+`marketplace.persist/store` throws without an injected database API, so
+this actor cannot come up durable-looking while writing to nothing, and
+`durable?` reports false for the memory backend so a readiness check can
+refuse it.
+
+`orderops.edge.worker` is the host half — a Cloudflare Worker bound to
+D1, running the real `kotobase.core` engine through
+`kotobase-storage-d1`.
+
+### load → compute → flush
+
+The D1 provider is Promise-based; the actor is synchronous, and making
+it async would ripple through every `Store` protocol in the fleet for no
+benefit. So each request:
+
+1. `await` the current state out of D1
+2. run the actor synchronously against a recording db-api
+3. `await` **one** transact of everything it wrote
+
+One transact, so a request's writes land together or not at all, and
+concurrent requests are made safe by kotobase's own
+`kotobase_refs.revision` CAS rather than by anything invented here.
+
+### Endpoints
+
+| Route | Auth | |
+|---|---|---|
+| `GET /health` | — | datom count actually loaded from D1 |
+| `POST /orders` | Bearer | place an order through the real governor |
+| `GET /orders/:id` | — | read it back |
+| `POST /admin/seed` | Bearer | write the reference buyers/sellers/offers |
+
+Reads are open; writes are gated by `ORDER_WRITE_TOKEN` (a Cloudflare
+secret, mirrored to the macOS Keychain). A public unauthenticated write
+endpoint on a durable store is not a demo, it is an invitation.
+
 ```bash
 clojure -M:dev:run   # basket → 2-seller order → settlement + warehouse projections
-clojure -M:test      # 26 tests, 82 assertions
+clojure -M:test      # 43 tests, 119 assertions
 clojure -M:lint
+npm run deploy       # build + wrangler deploy (D1-bound host)
 ```
 
 ## Rollout phases
