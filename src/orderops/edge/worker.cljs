@@ -79,8 +79,24 @@
   (-> (d1/datoms-edn! db ref-name (pr-str {}))
       (.then (fn [edn]
                (let [ds (reader/read-string (str edn))]
-                 (vec (if (map? ds) (:datoms ds) ds)))))
-      (.catch (fn [_] []))))
+                 (vec (if (map? ds) (:datoms ds) ds)))))))
+
+(defn- load-tx-tolerant
+  "`load-tx`, but an EMPTY ref (nothing ever written) reads as no datoms
+  rather than an error.
+
+  Only that one case is swallowed. Any other store failure propagates,
+  because a `.catch` that returns `[]` makes a broken store look exactly
+  like an empty database -- the actor then reports the catalog is empty,
+  refuses every order, and nothing anywhere says why. That happened, and
+  cost a build-and-deploy cycle to find."
+  [db]
+  (-> (load-tx db)
+      (.catch (fn [e]
+                (let [m (str (or (aget e "message") e))]
+                  (if (re-find #"(?i)not found|no such|missing ref|empty" m)
+                    []
+                    (throw e)))))))
 
 (defn- flush-tx!
   "One transact of everything the request wrote. Nothing when it wrote
@@ -174,7 +190,7 @@
 (defn- with-store
   "load -> f -> flush. `f` gets a durable-backed store and returns a map."
   [db f]
-  (-> (load-tx db)
+  (-> (load-tx-tolerant db)
       (.then (fn [datoms]
                (let [api (persist/recording-db-api (datoms->tx datoms))
                      st (store/kotobase-store {:db-api api})
@@ -263,13 +279,13 @@
             (.catch (fn [e] (json {:error (str e)} 500)))))
 
       (= path "/health")
-      (-> (load-tx (aget env "DB"))
+      (-> (load-tx-tolerant (aget env "DB"))
           (.then (fn [ds] (json {:ok true :service "cloud-itonami-marketplace-order"
                                  :store "cloudflare-d1 / kotobase.core"
                                  :ref ref-name
                                  :datoms-loaded (count ds)}
                                 200)))
-          (.catch (fn [e] (json {:ok false :error (str e)} 500))))
+          (.catch (fn [e] (json {:ok false :store-error (str (or (aget e "message") e))} 500))))
 
       (and (= method "POST") (= path "/admin/seed"))
       (if-not (authorised? request env)

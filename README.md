@@ -149,6 +149,23 @@ concurrent requests are made safe by kotobase's own
 | `POST /orders` | Bearer | place an order through the real governor |
 | `GET /orders/:id` | — | read it back |
 | `POST /admin/seed` | Bearer | write the reference buyers/sellers/offers |
+| `GET /debug/datoms` | Bearer | the raw datom shape the store returns |
+
+### D1 schema
+
+The Worker needs **all** of `kotobase-storage-d1`'s migrations, not just
+the first two. `0003_datomic_projection.sql` onward create the tables the
+read path uses; without them `datoms` fails with `no such table:
+kotobase_projection` and — because an over-broad `.catch` used to return
+`[]` — the actor reported an empty catalog and refused every order with
+no indication why. That `.catch` now only swallows an empty ref;
+anything else propagates to `/health` as `:store-error`.
+
+```bash
+for f in orgs/kotoba-lang/kotobase-storage-d1/migrations/*.sql; do
+  wrangler d1 execute cloud-itonami-marketplace --remote --file "$f" -y
+done
+```
 
 Reads are open; writes are gated by `ORDER_WRITE_TOKEN` (a Cloudflare
 secret, mirrored to the macOS Keychain). A public unauthenticated write
