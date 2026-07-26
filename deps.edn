@@ -1,0 +1,30 @@
+{:paths ["src"]
+ ;; langgraph-clj brings langchain-clj transitively (both zero-/single-dep,
+ ;; all .cljc -> portable to JVM / SCI / ClojureScript / GraalVM). This repo
+ ;; is standalone (forkable outside the workspace); the :local/root paths
+ ;; only resolve inside the monorepo checkout -- a standalone fork should
+ ;; override them with git coordinates.
+ :deps {io.github.com-junkawasaki/langgraph-clj
+        {:local/root "../../kotoba-lang/langgraph"}
+        ;; the multi-seller order contract (a parent over per-seller okaimono
+        ;; sub-orders), the catalog offers it prices from, and the seller
+        ;; credential it reads. This actor composes the other actors'
+        ;; outputs; it re-implements none of their rules.
+        io.github.kotoba-lang/marketplace
+        {:local/root "../../kotoba-lang/marketplace"}}
+ :aliases
+ {:dev {:override-deps
+        {io.github.com-junkawasaki/langchain-clj
+         {:local/root "../../kotoba-lang/langchain"}}}
+  :run {:main-opts ["-m" "orderops.sim"]}
+  :test {:extra-paths ["test"]
+         :extra-deps {io.github.cognitect-labs/test-runner
+                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+         :main-opts ["-m" "cognitect.test-runner"]
+         :exec-fn cognitect.test-runner.api/test}
+  :cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}
+                      thheller/shadow-cljs {:mvn/version "2.28.20"}}}
+  :lint {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2024.11.14"}}
+         :main-opts    ["-m" "clj-kondo.main"
+                        "--lint" "src" "test"
+                        "--fail-level" "error"]}}}

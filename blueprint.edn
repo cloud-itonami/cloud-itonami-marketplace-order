@@ -1,0 +1,18 @@
+{:itonami.blueprint/id "cloud-itonami-marketplace-order"
+ :itonami.blueprint/name "Federated Marketplace Multi-Seller Order Orchestration"
+ :itonami.blueprint/domain :marketplace/order-orchestration
+ :itonami.blueprint/license "AGPL-3.0-or-later"
+ :itonami.blueprint/social-impact [:consumer-protection :small-seller-access :transparency]
+ :itonami.blueprint/governor :order-governor
+ :itonami.blueprint/robotics false
+ :itonami.blueprint/required-technologies [:identity :forms :audit-ledger :retail]
+ :itonami.blueprint/optional-technologies []
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/maturity :implemented
+ :itonami.blueprint/keying :function
+ :itonami.blueprint/adr "2607264000-marketplace-federated-commerce-layer"
+ ;; The fleet's first cross-actor orchestrator: it READS the outputs of
+ ;; -onboarding (credentials) and the catalog, and produces the
+ ;; projections -settlement and -fulfillment consume. It re-implements
+ ;; none of their rules.
+ :itonami.blueprint/orchestrator true}

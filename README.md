@@ -1,0 +1,109 @@
+# cloud-itonami-marketplace-order
+
+Open Business Blueprint (implemented actor): **the fleet's first
+cross-actor orchestrator.**
+
+Every other `cloud-itonami-*` actor is self-contained by design: one
+repo, one business, forkable alone. That is right for a single operator,
+but it left a real hole — nothing tied listing to settlement to
+fulfillment to delivery, so a *marketplace order* existed nowhere. This
+actor is that seam.
+
+**OrderAdvisor ⊣ OrderGovernor** on
+[`langgraph`](https://github.com/kotoba-lang/langgraph). The order
+contract is `marketplace.order` in
+[`kotoba-lang/marketplace`](https://github.com/kotoba-lang/marketplace).
+Design record:
+[ADR-2607264000](https://github.com/com-junkawasaki/root/blob/main/90-docs/adr/2607264000-marketplace-federated-commerce-layer.edn).
+
+## A parent over per-seller sub-orders
+
+`kotoba.okaimono` already models an order well — lines, totals, a COD
+flag, an explicit transition table. But its order belongs to **one
+store**. A marketplace basket does not: its lines belong to different
+sellers who pick, pack and ship independently and may deliver days
+apart.
+
+So a marketplace order is a parent over per-seller `okaimono`
+sub-orders. The courier actor
+([`isic-5320`](https://github.com/cloud-itonami/cloud-itonami-isic-5320))
+and the warehouse consume records they already understand, unchanged.
+
+**Status is derived, never stored.** There is deliberately no setter. A
+parent that kept its own status could tell a buyer "delivered" while one
+seller's parcel sits in a depot, and `:partially-delivered` is its own
+state precisely so that `fully-delivered?` can answer **false** for it —
+releasing every seller's money because one delivered is the multi-seller
+failure this contract exists to prevent.
+
+## It reads other actors; it never overrules them
+
+Orchestration creates a failure mode the single-actor repos do not have:
+an actor that can reach into several domains can also contradict them.
+So this one is deliberately a reader.
+
+| Concern | Owner | This actor |
+|---|---|---|
+| May a seller trade? | `-marketplace-onboarding` credential | reads `marketplace.seller/sellable?` |
+| What does it cost? | catalog offer | reads `:offer/price-minor` |
+| Is this move legal? | `kotoba.okaimono/transitions` | asks, never re-implements |
+| Who gets paid what? | `-marketplace-settlement` | hands over `->basket-lines` |
+| Who picks it? | `-marketplace-fulfillment` | hands over the sub-order |
+
+**A buyer cannot name their own price.** There is no code path that
+reads a price from the request payload — `resolve-lines` takes it from
+the catalog offer. The test
+`a-buyer-cannot-name-their-own-price` puts `:unit-price-minor 1` in a
+request and asserts the order still totals 1200.
+
+## Six HARD checks (permanent, un-overridable)
+
+| Check | What it catches |
+|---|---|
+| **Unknown offer** | a line that resolves to nothing in the catalog |
+| **Seller not sellable** | any seller on the order not admitted to trade *right now* |
+| **Malformed order** | duplicate seller sub-orders, mixed currency, an invalid `okaimono` part |
+| **Illegal transition** | a move `kotoba.okaimono` does not allow |
+| **Effect not `:propose`** | a proposal claiming to directly actuate |
+| **Scope exclusion** | any claim to have shipped, delivered, refunded or paid; any op outside the allowlist |
+
+Seller eligibility is checked on `:place-order` **only**. Once an order
+exists, a seller whose credential later lapses must still be able to
+have their parcel marked delivered — refusing that would strand the
+buyer's goods in an un-closeable order. That asymmetry is tested
+(`a-lapsed-credential-does-not-strand-an-existing-order`).
+
+## Recording a fact is not the same as causing one
+
+This actor's auto set is unusually permissive for the fleet, and the
+reason matters: `:advance-sub-order` records something that **already
+happened** — the warehouse packed it, the courier collected it, the
+buyer received it. Refusing to record a fact until a human agrees does
+not make the fact less true; it makes every downstream actor's view
+stale, and a stale delivery status is what strands a seller's money in
+an escrow that should have released.
+
+The safety comes from three places that are not a human staring at a
+status update: `okaimono`'s transition table bounds what is expressible,
+the governor re-derives eligibility and prices, and `:delivered` — the
+transition with money consequences — is independently re-checked by the
+settlement actor before it releases anything.
+
+`:cancel-sub-order` is the opposite. It reaches forward into a
+settlement plan that may already exist and an escrow that may already be
+open, so it **always** escalates.
+
+```bash
+clojure -M:dev:run   # basket → 2-seller order → settlement + warehouse projections
+clojure -M:test      # 26 tests, 82 assertions
+clojure -M:lint
+```
+
+## Rollout phases
+
+| Phase | Writes | Auto-commits |
+|---|---|---|
+| 0 read-only | — | — |
+| 1 assisted-placing | `:place-order` | — |
+| 2 assisted-tracking | + `:advance-sub-order` | — |
+| 3 supervised-auto | all | `:place-order` `:advance-sub-order` |

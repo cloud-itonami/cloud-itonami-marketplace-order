@@ -1,0 +1,86 @@
+(ns orderops.sim
+  "Offline demo: a basket becomes a 2-seller order, the parcels move at
+  different speeds, and the projections settlement and fulfillment
+  consume come out the far end. `clojure -M:dev:run`."
+  (:require [langgraph.graph :as g]
+            [marketplace.fulfillment :as ff]
+            [marketplace.order :as order]
+            [marketplace.settlement :as settle]
+            [orderops.operation :as operation]
+            [orderops.store :as store]))
+
+(def ^:private now "2026-06-01T00:00:00Z")
+(def ^:private ctx {:actor-id "order-demo" :phase 3 :now now})
+
+(defn- run-req! [actor tid request]
+  (g/run* actor {:request request :context ctx} {:thread-id tid}))
+
+(defn- offer-of [st seller]
+  (->> (store/all-offer-records st)
+       (filter #(= seller (:offer/seller %))) first :offer/id))
+
+(defn -main [& _]
+  (let [s (store/seed-db)
+        actor (operation/build s)]
+
+    (println "\n=== 1. 2出品者のバスケットを1注文に（価格はカタログから）===")
+    (run-req! actor "sim-1"
+          {:op :place-order :order-id "ord-1"
+           :patch {:buyer "buyer-1"
+                   :lines [{:offer-id (offer-of s "merchant.alpha") :qty 1}
+                           {:offer-id (offer-of s "merchant.beta") :qty 1}]}})
+    (let [o (store/order-record s "ord-1")]
+      (println "  出品者   :" (:order/sellers o))
+      (println "  合計     :" (order/total-minor o) (:order/currency o))
+      (println "  状態     :" (order/overall-status o)))
+
+    (println "\n=== 2. 出品できない出品者を含む注文 → HARD hold ===")
+    (let [r (run-req! actor "sim-2"
+                  {:op :place-order :order-id "ord-2"
+                   :patch {:buyer "buyer-1"
+                           :lines [{:offer-id (offer-of s "merchant.gamma") :qty 1}]}})]
+      (println "  status     :" (:status r))
+      (println "  violations :" (mapv :rule (:violations (last (store/ledger s)))))
+      (println "  作成された注文:" (store/order-record s "ord-2")))
+
+    (println "\n=== 3. 精算への受け渡し（出品者ごとに1明細）===")
+    (let [bl (store/->settlement-basket (store/order-record s "ord-1"))
+          plan (settle/settlement-plan {:lines bl :currency "JPY"
+                                        :fee-schedule (settle/fee-schedule {:commission-bps 1000})
+                                        :operator "merchant.marketplace-operator"})]
+      (doseq [a (:plan/allocations plan)]
+        (println "   " (:alloc/seller a) "受取" (:alloc/seller-payout-minor a)
+                 "手数料" (:alloc/commission-minor a)))
+      (println "  保存則   :" (:plan/conserved? plan)))
+
+    (println "\n=== 4. 倉庫への受け渡し（ロボット動作は安全クラス付き）===")
+    (let [sub (order/sub-order (store/order-record s "ord-1") "merchant.alpha")
+          tasks (ff/plan-tasks "ord-1" sub :station "ST-1" :robot "amr-07")]
+      (doseq [t tasks]
+        (let [gated (ff/gate-actions t #{:low :medium :high})]
+          (println "  " (:task/kind t)
+                   "permit" (count (:permitted gated))
+                   "/ 人間承認要" (count (:needs-sign-off gated))
+                   "/ 拒否" (count (:denied gated))))))
+
+    (println "\n=== 5. 出品者ごとに別々のペースで進む ===")
+    (doseq [sel ["merchant.alpha" "merchant.beta"]]
+      (run-req! actor (str "c-" sel) {:op :advance-sub-order :order-id "ord-1"
+                                  :patch {:seller sel :to :confirmed}})
+      (run-req! actor (str "p-" sel) {:op :advance-sub-order :order-id "ord-1"
+                                  :patch {:seller sel :to :packed}}))
+    (doseq [to [:handed-over :delivered]]
+      (run-req! actor (str "a-" to) {:op :advance-sub-order :order-id "ord-1"
+                                 :patch {:seller "merchant.alpha" :to to}}))
+    (let [o (store/order-record s "ord-1")]
+      (println "  alpha 配達済 / beta 未 →" (order/overall-status o))
+      (println "  全部配達済み?  :" (order/fully-delivered? o) "← 精算はまだ解放できない"))
+    (doseq [to [:handed-over :delivered]]
+      (run-req! actor (str "b-" to) {:op :advance-sub-order :order-id "ord-1"
+                                 :patch {:seller "merchant.beta" :to to}}))
+    (let [o (store/order-record s "ord-1")]
+      (println "  両方配達済み  →" (order/overall-status o))
+      (println "  全部配達済み?  :" (order/fully-delivered? o)))
+
+    (println "\n=== 監査台帳 ===")
+    (println " " (count (store/ledger s)) "件")))
