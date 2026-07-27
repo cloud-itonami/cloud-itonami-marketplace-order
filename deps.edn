@@ -1,24 +1,27 @@
 {:paths ["src"]
  ;; langgraph-clj brings langchain-clj transitively (both zero-/single-dep,
  ;; all .cljc -> portable to JVM / SCI / ClojureScript / GraalVM). This repo
- ;; is standalone (forkable outside the workspace); the :local/root paths
- ;; only resolve inside the monorepo checkout -- a standalone fork should
- ;; override them with git coordinates.
+ ;; Pinned by git coordinate. This repo IS standalone and CI checks it out
+ ;; alone, so a sibling path never resolved there -- the classpath failed to
+ ;; build before any test ran.
  :deps {io.github.com-junkawasaki/langgraph-clj
-        {:local/root "../../kotoba-lang/langgraph"}
+        {:git/url "https://github.com/kotoba-lang/langgraph.git"
+         :git/sha "577a59a9d5eb3ef90b81342f4673973f481ff7f4"}
         ;; the multi-seller order contract (a parent over per-seller okaimono
         ;; sub-orders), the catalog offers it prices from, and the seller
         ;; credential it reads. This actor composes the other actors'
         ;; outputs; it re-implements none of their rules.
         io.github.kotoba-lang/marketplace
-        {:local/root "../../kotoba-lang/marketplace"}
+        {:git/url "https://github.com/kotoba-lang/marketplace.git"
+         :git/sha "2bdd9b6bc7876afa5e081f66f9ed2deb24d4b648"}
         ;; The kotobase.net client, for the HOST half only
         ;; (orderops.edge.worker): q / pull / datoms / transact with a
         ;; per-request CACAO. This replaced a direct kotobase-storage-d1
         ;; embedding that bypassed the service's authorization entirely and
         ;; hand-rolled a query stub in place of q/pull.
         io.github.kotoba-lang/kotobase-client
-        {:local/root "../../kotoba-lang/kotobase-client"}}
+        {:git/url "https://github.com/kotoba-lang/kotobase-client.git"
+         :git/sha "f88a46930e4209c4346c0ef78f3795a948bf73b6"}}
  :aliases
  {:dev {:override-deps
         {io.github.com-junkawasaki/langchain-clj
