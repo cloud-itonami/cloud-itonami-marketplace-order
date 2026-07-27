@@ -1,0 +1,9 @@
+{
+  "format": "kototama.resident-capabilities/v1",
+  "storage": {
+    "log": "/Users/asher/.murakumo/kototama-component-orderops/values.jsonl",
+    "max-write-bytes": 67108864,
+    "deadline-ms": 5000,
+    "audit-id": "marketplace-order-aggregate-v1"
+  }
+}

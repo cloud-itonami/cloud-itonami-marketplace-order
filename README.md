@@ -165,6 +165,12 @@ clojure -M:component compile \
   --policy component-policy.edn --output orderops-commit.component.wasm
 ```
 
+`murakumo.component.edn` pins the resident `orderops` instance to loopback
+port `18911` with a storage-only grant. The daemon starts in `compile-only`
+mode because this component intentionally exports the parameterized `commit`
+function, not a fake parameterless `main`; every real call goes through
+`POST /v1/invoke` and produces a signed invocation receipt.
+
 ### Endpoints
 
 | Route | Auth | |
