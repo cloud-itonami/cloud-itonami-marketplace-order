@@ -159,6 +159,12 @@ selection, TLS, or retry policy in the language program. Those remain host
 responsibilities. The component imports only the typed `storage-v1` WIT
 function and receives no ambient WASI authority.
 
+```bash
+clojure -M:component compile \
+  src/orderops/commit.kotoba --target component \
+  --policy component-policy.edn --output orderops-commit.component.wasm
+```
+
 ### Endpoints
 
 | Route | Auth | |
