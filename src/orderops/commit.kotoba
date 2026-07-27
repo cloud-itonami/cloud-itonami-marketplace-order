@@ -1,0 +1,40 @@
+(ns orderops.commit
+  (:export [commit])
+  (:capabilities #{:storage/transact})
+  (:schemas
+   {:orderops.storage/put-existing
+    [:record :orderops.storage/put-existing
+     [[:key :keyword] [:value :string] [:expected-version :i64]]]
+    :orderops.storage/put-new
+    [:record :orderops.storage/put-new
+     [[:key :keyword] [:value :string]]]
+    :orderops.storage/request
+    [:variant :orderops.storage/request
+     [[:put-existing [:ref :orderops.storage/put-existing]]
+      [:put-new [:ref :orderops.storage/put-new]]]]
+    :orderops.storage/entry
+    [:record :orderops.storage/entry
+     [[:key :keyword] [:value :string] [:version :i64]]]
+    :orderops.storage/conflict
+    [:record :orderops.storage/conflict
+     [[:key :keyword] [:current-version :i64]]]
+    :orderops.storage/error
+    [:record :orderops.storage/error
+     [[:code :keyword] [:message :string] [:retryable :bool]]]
+    :orderops.storage/result
+    [:variant :orderops.storage/result
+     [[:written [:ref :orderops.storage/entry]]
+      [:conflict-current [:ref :orderops.storage/conflict]]
+      [:conflict-missing :bool]
+      [:error [:ref :orderops.storage/error]]]]}))
+
+;; The host supplies one aggregate order value containing the new order state
+;; and its immutable audit facts. storage-v1 commits that value conditionally,
+;; so the domain update and its audit trail cannot split across transactions.
+;;
+(defn commit [request [:ref :orderops.storage/request]]
+  [:ref :orderops.storage/result]
+  (typed-cap-call :storage/transact
+                  [:ref :orderops.storage/request]
+                  [:ref :orderops.storage/result]
+                  request))
