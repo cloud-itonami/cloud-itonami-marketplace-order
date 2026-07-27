@@ -68,27 +68,62 @@
 
 ;; ───────────────────────── operations ─────────────────────────
 
-(defn- place-order [client body]
+(defn- place-new [st body oid]
+  (let [req {:op :place-order :order-id oid
+             :patch {:buyer (get body "buyer")
+                     :lines (mapv (fn [l] {:offer-id (get l "offer-id")
+                                           :qty (get l "qty")})
+                                  (get body "lines" []))}}
+        ctx {:actor-id "orderops-edge" :phase 3
+             :now (get body "now" "2026-06-01T00:00:00Z")
+             :needs-shipping? (get body "needs-shipping" true)
+             :destination (get body "destination")}]
+    (outcome oid (run-actor st ctx req))))
+
+(defn- place-order
+  "Place an order, at most once per order id.
+
+  A retried POST — a client timeout, a proxy retry, a user pressing the
+  button twice — must not become a second order. The order id is the
+  idempotency key, because it is already the thing that identifies this
+  order and asking callers to invent a second identifier is asking them
+  to get it wrong.
+
+  Three outcomes, and the distinction between the last two matters:
+
+    id unseen                    -> place it.
+    id seen, SAME order          -> `:idempotent true`, the stored
+                                    order, no second write. A retry is
+                                    answered, not punished.
+    id seen, DIFFERENT order     -> `order-id-conflict`. This is not a
+                                    retry; it is two different orders
+                                    claiming one id, and silently
+                                    keeping either one loses the other."
+  [client body]
   (let [oid (get body "order-id")
         offer-ids (mapv #(get % "offer-id") (get body "lines" []))]
     (edge/with-store
       {:client client
        ;; The sellers cannot be named until the offers are in hand, so
        ;; they are taken wholesale; everything else is exactly what the
-       ;; request named.
-       :wants {:buyer [(get body "buyer")] :offer offer-ids :credential :all}
+       ;; request named -- including the order id itself, so a replay is
+       ;; recognised before anything is written.
+       :wants {:buyer [(get body "buyer")] :offer offer-ids :credential :all
+               :order [oid]}
        :store-fn store/kotobase-store}
       (fn [st]
-        (let [req {:op :place-order :order-id oid
-                   :patch {:buyer (get body "buyer")
-                           :lines (mapv (fn [l] {:offer-id (get l "offer-id")
-                                                 :qty (get l "qty")})
-                                        (get body "lines" []))}}
-              ctx {:actor-id "orderops-edge" :phase 3
-                   :now (get body "now" "2026-06-01T00:00:00Z")
-                   :needs-shipping? (get body "needs-shipping" true)
-                   :destination (get body "destination")}]
-          (outcome oid (run-actor st ctx req)))))))
+        (if-let [existing (store/order-record st oid)]
+          (let [want (store/build-order st {:order-id oid
+                                            :buyer (get body "buyer")
+                                            :lines (mapv (fn [l] {:offer-id (get l "offer-id")
+                                                                  :qty (get l "qty")})
+                                                         (get body "lines" []))
+                                            :currency (get body "currency")})]
+            (if (and want (= (order/->basket-lines want)
+                             (order/->basket-lines existing)))
+              {:order-id oid :disposition "commit" :violations [] :idempotent true}
+              {:order-id oid :disposition "hold" :violations ["order-id-conflict"]}))
+          (place-new st body oid))))))
 
 (defn- advance-order
   "Record a sub-order transition observed elsewhere.

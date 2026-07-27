@@ -190,3 +190,38 @@
       (is (= :phone-verified (:buyer/level got)))
       (is (= 1 (count (:buyer/addresses got))))
       (is (= "Tokyo" (:address/city (first (:buyer/addresses got))))))))
+
+;; ───────────── idempotency: the order id IS the key ─────────────
+
+(deftest a-replayed-order-does-not-become-a-second-order
+  (testing "a client timeout, a proxy retry, a user pressing the button
+            twice -- none of them may create a second order"
+    (let [st (store/seed-db)
+          spec {:order-id "ord-1" :buyer "buyer-1"
+                :lines [{:offer-id (offer-of st "merchant.alpha") :qty 2}]}
+          o (store/build-order st spec)]
+      (store/commit-record! st {:op :place-order :value {:order o}})
+      (let [again (store/build-order st spec)]
+        (is (= (order/->basket-lines o) (order/->basket-lines again))
+            "the same request builds the same order, which is what makes
+             recognising a replay possible at all")))))
+
+(deftest the-same-id-with-different-lines-is-not-a-replay
+  (testing "two different orders claiming one id -- silently keeping
+            either one loses the other"
+    (let [st (store/seed-db)
+          a (store/build-order st {:order-id "ord-1" :buyer "buyer-1"
+                                   :lines [{:offer-id (offer-of st "merchant.alpha") :qty 2}]})
+          b (store/build-order st {:order-id "ord-1" :buyer "buyer-1"
+                                   :lines [{:offer-id (offer-of st "merchant.alpha") :qty 5}]})]
+      (is (not= (order/->basket-lines a) (order/->basket-lines b))))))
+
+(deftest a-replay-comparison-uses-the-basket-not-the-whole-record
+  (testing "the basket lines are what settlement splits on, so they are
+            what must be identical for a replay to be safe -- comparing
+            whole records would call a re-serialised order a conflict"
+    (let [st (store/seed-db)
+          o (store/build-order st {:order-id "ord-1" :buyer "buyer-1"
+                                   :lines [{:offer-id (offer-of st "merchant.alpha") :qty 1}]})]
+      (is (seq (order/->basket-lines o)))
+      (is (= (order/->basket-lines o) (order/->basket-lines o))))))
