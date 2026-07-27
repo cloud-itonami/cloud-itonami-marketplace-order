@@ -158,8 +158,12 @@
   (buyer-account [_ id] (persist/get-doc (persist/ctx st :buyer :buyer/id) id))
   (all-buyer-accounts [_] (persist/all-docs (persist/ctx st :buyer :buyer/id)))
   (durable? [_] (not (:persist/memory? st)))
-  (seller-credential [_ id] (persist/get-doc (persist/ctx st :seller :seller/id) id))
-  (all-seller-credentials [_] (persist/all-docs (persist/ctx st :seller :seller/id)))
+  ;; kind :credential, NOT :seller -- these documents are written by
+  ;; -marketplace-onboarding and this actor only reads them. Reading
+  ;; them under a different kind is how two actors sharing one ref stop
+  ;; seeing each other, which is exactly what happened the first time.
+  (seller-credential [_ id] (persist/get-doc (persist/ctx st :credential :seller/id) id))
+  (all-seller-credentials [_] (persist/all-docs (persist/ctx st :credential :seller/id)))
   (offer-record [_ id] (persist/get-doc (persist/ctx st :offer :offer/id) id))
   (all-offer-records [_] (persist/all-docs (persist/ctx st :offer :offer/id)))
   (order-record [_ id] (persist/get-doc (persist/ctx st :order :order/id) id))
@@ -253,3 +257,15 @@
   in one place rather than being reconstructed by each caller."
   [o]
   (order/->basket-lines o))
+
+(defn put-buyer!
+  "Write a buyer account.
+
+  No proposal and no governor: creating an account is not a decision
+  this actor makes about anyone. What IS a decision -- whether this
+  buyer may place THIS order -- happens in `orderops.governor` at
+  purchase time, against the operator's stated `:require-level` and the
+  destination."
+  [s b]
+  (persist/put-doc! (persist/ctx (:st s) :buyer :buyer/id) b)
+  b)
