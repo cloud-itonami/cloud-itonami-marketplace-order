@@ -12,13 +12,13 @@
         ;; outputs; it re-implements none of their rules.
         io.github.kotoba-lang/marketplace
         {:local/root "../../kotoba-lang/marketplace"}
-        ;; The D1 storage provider, for the HOST half only
-        ;; (orderops.edge.worker). marketplace.persist itself requires no
-        ;; storage library -- the policy puts transport in the host.
-        io.github.kotoba-lang/kotobase-storage-d1
-        {:local/root "../../kotoba-lang/kotobase-storage-d1"}
-        io.github.kotoba-lang/kotobase-engine
-        {:local/root "../../kotoba-lang/kotobase-engine"}}
+        ;; The kotobase.net client, for the HOST half only
+        ;; (orderops.edge.worker): q / pull / datoms / transact with a
+        ;; per-request CACAO. This replaced a direct kotobase-storage-d1
+        ;; embedding that bypassed the service's authorization entirely and
+        ;; hand-rolled a query stub in place of q/pull.
+        io.github.kotoba-lang/kotobase-client
+        {:local/root "../../kotoba-lang/kotobase-client"}}
  :aliases
  {:dev {:override-deps
         {io.github.com-junkawasaki/langchain-clj

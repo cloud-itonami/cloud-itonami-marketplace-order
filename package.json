@@ -9,6 +9,8 @@
   "devDependencies": {
     "@noble/hashes": "^2.2.0",
     "shadow-cljs": "^2.28.20",
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.0.0",
+    "@noble/curves": "^1.6.0",
+    "@ipld/dag-cbor": "^9.2.1"
   }
 }
