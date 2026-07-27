@@ -170,6 +170,8 @@ port `18911` with a storage-only grant. The daemon starts in `compile-only`
 mode because this component intentionally exports the parameterized `commit`
 function, not a fake parameterless `main`; every real call goes through
 `POST /v1/invoke` and produces a signed invocation receipt.
+The pinned asher qualification evidence is recorded in
+`qualification/asher-20260727.edn`.
 
 ### Endpoints
 
