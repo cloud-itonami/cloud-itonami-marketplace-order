@@ -23,4 +23,9 @@
  ;; preferred one. :endpoint-kind is what a consumer should key off if it wants
  ;; to treat a provisional address differently.
  :itonami.blueprint/endpoint "https://cloud-itonami-marketplace-order.04-feasts-minded.workers.dev"
- :itonami.blueprint/endpoint-kind :workers-dev}
+ :itonami.blueprint/endpoint-kind :workers-dev
+ ;; This Worker answers /health with a JSON body carrying service, store,
+ ;; auth model and DID. Declared rather than assumed: a consumer must not
+ ;; guess a probe path, because guessing wrong reads an SPA index as a
+ ;; healthy API.
+ :itonami.blueprint/health-path "/health"}
