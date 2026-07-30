@@ -15,4 +15,12 @@
  ;; -onboarding (credentials) and the catalog, and produces the
  ;; projections -settlement and -fulfillment consume. It re-implements
  ;; none of their rules.
- :itonami.blueprint/orchestrator true}
+ :itonami.blueprint/orchestrator true
+ ;; Address added 2026-07-30. The Worker is deployed and /health answers 200.
+ ;; It is a *.workers.dev URL because this Worker declares neither a route nor
+ ;; a custom_domain, and no marketplace./api. host under itonami.cloud resolves
+ ;; — so this is the only real address, recorded as such rather than as a
+ ;; preferred one. :endpoint-kind is what a consumer should key off if it wants
+ ;; to treat a provisional address differently.
+ :itonami.blueprint/endpoint "https://cloud-itonami-marketplace-order.04-feasts-minded.workers.dev"
+ :itonami.blueprint/endpoint-kind :workers-dev}
