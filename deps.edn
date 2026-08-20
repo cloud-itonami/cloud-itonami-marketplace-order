@@ -23,9 +23,12 @@
         {:git/url "https://github.com/kotoba-lang/kotobase-client.git"
          :git/sha "f88a46930e4209c4346c0ef78f3795a948bf73b6"}}
  :aliases
- {:dev {:override-deps
-        {io.github.com-junkawasaki/langchain-clj
-         {:local/root "../../kotoba-lang/langchain"}}}
+ {;; This alias held an :override-deps entry for the retired coordinate
+  ;; io.github.com-junkawasaki/langchain-clj. langgraph declares the same
+  ;; library as io.github.kotoba-lang/langchain, so the entry matched no
+  ;; node in the resolved tree and never reached the classpath -- verified
+  ;; with `clojure -Stree`/-Spath, unchanged before and after removal.
+  :dev {}
   :run {:main-opts ["-m" "orderops.sim"]}
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
