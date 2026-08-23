@@ -1,0 +1,29 @@
+{:format :cloud-itonami.component-qualification/v1
+ :qualified-at "2026-07-27"
+ :node "asher"
+ :service "com.murakumo.kototama-component.orderops"
+ :endpoint "http://127.0.0.1:18911"
+ :component
+ {:cid "bafkreian5aaooylomdvnzxm223myl7mav6h74uhqw5d4z5yvdhahohijwq"
+  :sha256 "0de800e7616e60eadcdd9ad6d985fd80af8ffe50f0b747ccf71519c0771d09b4"
+  :capability-config-sha256
+  "b67818a4a0a35846c9043d7eaa50b634be84b2450daac1d14640d2bd2eb40f8a"}
+ :runtime
+ {:sha256 "d1bfcf6af533ca629ca329abfb1a295c467606f39f6d5abccb6bd065a5e2ff6a"
+  :startup-mode :compile-only
+  :ambient-wasi false
+  :capabilities ["aiueos-storage-transact"]}
+ :conformance
+ {:request-key "order/qualification-20260727"
+  :put-new {:case :written :version 1 :effects 1}
+  :duplicate-put-new {:case :conflict-current
+                      :current-version 1
+                      :effects 0}
+  :storage-log-lines-after-both 1
+  :receipt-log-lines-after-both 2
+  :latest-receipt-signature :ed25519-verified}
+ :coexistence
+ {:existing-service "com.murakumo.kototama-component"
+  :endpoint "http://127.0.0.1:18901"
+  :ready true
+  :unchanged true}}

@@ -1,0 +1,19 @@
+{:format :cloud-itonami.structured-component/v1
+ :name "cloud-itonami-marketplace-order-commit"
+ :source "src/orderops/commit.kotoba"
+ :target :wasm-component-kotoba-v1
+ :ambient-wasi false
+ :policy "component-policy.edn"
+ :component-abilities
+ {12 {:target "/Users/asher/.murakumo/kototama-component-orderops/values.jsonl"
+      :operation :storage/transact
+      :max-bytes 67108864
+      :max-items 1
+      :deadline-ms 5000
+      :audit-id "marketplace-order-aggregate-v1"}}
+ :capability-config "qualification/asher-capabilities.json"
+ :budgets {:fuel 100000 :memory-pages 16 :deadline-ms 10000}
+ :service {:instance "orderops"
+           :port 18911
+           :startup-mode :compile-only}
+ :placement {:replicas 1 :labels {:role "marketplace-order" :node "asher"}}}

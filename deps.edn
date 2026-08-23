@@ -29,9 +29,23 @@
   ;; node in the resolved tree and never reached the classpath -- verified
   ;; with `clojure -Stree`/-Spath, unchanged before and after removal.
   :dev {}
+  :component
+  {:extra-deps {io.github.kotoba-lang/compiler
+                {:git/url "https://github.com/kotoba-lang/compiler.git"
+                 :git/sha "c8a9f7ef16ad8c605749e56c3bc4c73607545bec"}
+                io.github.kotoba-lang/kotoba-component
+                {:git/url "https://github.com/kotoba-lang/kotoba-component.git"
+                 :git/sha "99275e24570265ecba91fd4026d993c135a02362"}}
+   :main-opts ["-m" "kotoba.compiler.cli"]}
   :run {:main-opts ["-m" "orderops.sim"]}
   :test {:extra-paths ["test"]
-         :extra-deps {io.github.cognitect-labs/test-runner
+         :extra-deps {io.github.kotoba-lang/compiler
+                      {:git/url "https://github.com/kotoba-lang/compiler.git"
+                       :git/sha "c8a9f7ef16ad8c605749e56c3bc4c73607545bec"}
+                      io.github.kotoba-lang/kotoba-component
+                      {:git/url "https://github.com/kotoba-lang/kotoba-component.git"
+                       :git/sha "99275e24570265ecba91fd4026d993c135a02362"}
+                      io.github.cognitect-labs/test-runner
                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test}
