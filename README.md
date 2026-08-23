@@ -141,6 +141,38 @@ One transact, so a request's writes land together or not at all, and
 concurrent requests are made safe by kotobase's own
 `kotobase_refs.revision` CAS rather than by anything invented here.
 
+### Kotoba Component commit boundary
+
+[`src/orderops/commit.kotoba`](src/orderops/commit.kotoba) is the first
+application slice moved behind the standard Component boundary. The host
+serializes one aggregate value containing the new order state and its immutable
+audit facts, then the guest invokes exactly one `storage/transact` with an
+expected version. Its application-owned request/result types deliberately
+narrow `storage-v1` to conditional aggregate puts: create, replace,
+conflict-current, conflict-missing, and provider error. Splitting create from
+replace removes the optional-version ambiguity while the current Component
+profile still rejects options nested inside capability record payloads. The
+guest never retries a non-idempotent write.
+
+This deliberately does not put Kotobase transport, CACAO credentials, database
+selection, TLS, or retry policy in the language program. Those remain host
+responsibilities. The component imports only the typed `storage-v1` WIT
+function and receives no ambient WASI authority.
+
+```bash
+clojure -M:component compile \
+  src/orderops/commit.kotoba --target component \
+  --policy component-policy.edn --output orderops-commit.component.wasm
+```
+
+`murakumo.component.edn` pins the resident `orderops` instance to loopback
+port `18911` with a storage-only grant. The daemon starts in `compile-only`
+mode because this component intentionally exports the parameterized `commit`
+function, not a fake parameterless `main`; every real call goes through
+`POST /v1/invoke` and produces a signed invocation receipt.
+The pinned asher qualification evidence is recorded in
+`qualification/asher-20260727.edn`.
+
 ### Endpoints
 
 | Route | Auth | |
