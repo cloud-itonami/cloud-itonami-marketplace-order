@@ -53,7 +53,7 @@
   stale. The safety is that the transition table decides what is even
   expressible, and that `:delivered` (the one with money consequences)
   is what settlement independently re-checks before releasing anything."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [kotoba.okaimono :as ok]
             [marketplace.buyer :as buyer]
             [marketplace.order :as order]
@@ -220,7 +220,7 @@
       :detail (str ":effect は :propose のみ許可されるが " (pr-str (:effect proposal)) " が提案された")}]))
 
 (defn- text-blob [proposal]
-  (str/lower-case (pr-str (select-keys proposal [:op :summary :rationale :cites :value]))))
+  (str/lower (pr-str (select-keys proposal [:op :summary :rationale :cites :value]))))
 
 (defn- scope-exclusion-violations [proposal]
   (let [op (:op proposal)
