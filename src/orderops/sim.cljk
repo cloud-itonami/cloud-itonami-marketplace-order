@@ -1,7 +1,7 @@
 (ns orderops.sim
   "Offline demo: a basket becomes a 2-seller order, the parcels move at
   different speeds, and the projections settlement and fulfillment
-  consume come out the far end. `clojure -M:dev:run`."
+  consume come out the far end. `kbb -M:dev:run`."
   (:require [langgraph.graph :as g]
             [marketplace.fulfillment :as ff]
             [marketplace.order :as order]
