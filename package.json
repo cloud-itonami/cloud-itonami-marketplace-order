@@ -3,7 +3,7 @@
   "private": true,
   "comment": "shadow-cljs compiles src/orderops/edge/worker.cljk -> dist/worker.js, the D1 host for the order actor.",
   "scripts": {
-    "build": "shadow-cljs release worker",
+    "build": "amu compile --target wasm32-browser worker",
     "deploy": "npm run build && wrangler deploy"
   },
   "devDependencies": {

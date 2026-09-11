@@ -160,7 +160,7 @@ responsibilities. The component imports only the typed `storage-v1` WIT
 function and receives no ambient WASI authority.
 
 ```bash
-clojure -M:component compile \
+kbb -M:component compile \
   src/orderops/commit.kotoba --target component \
   --policy component-policy.edn --output orderops-commit.component.wasm
 ```
@@ -204,9 +204,9 @@ secret, mirrored to the macOS Keychain). A public unauthenticated write
 endpoint on a durable store is not a demo, it is an invitation.
 
 ```bash
-clojure -M:dev:run   # basket → 2-seller order → settlement + warehouse projections
-clojure -M:test      # 43 tests, 119 assertions
-clojure -M:lint
+kbb -M:dev:run   # basket → 2-seller order → settlement + warehouse projections
+kbb -M:test      # 43 tests, 119 assertions
+kbb -M:lint
 npm run deploy       # build + wrangler deploy (D1-bound host)
 ```
 
