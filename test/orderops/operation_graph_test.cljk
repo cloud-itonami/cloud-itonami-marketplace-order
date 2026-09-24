@@ -5,7 +5,7 @@
   becomes a multi-seller order, each seller's parcel moves at its own
   pace, and the projections settlement and fulfillment consume come out
   the far end. That path did not exist anywhere in this fleet before."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [langgraph.graph :as g]
             [marketplace.fulfillment :as ff]
             [marketplace.order :as order]

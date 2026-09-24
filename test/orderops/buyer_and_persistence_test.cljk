@@ -1,6 +1,6 @@
 (ns orderops.buyer-and-persistence-test
   "Buyer accounts and durable storage, added to the order actor."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [marketplace.buyer :as buyer]
             [marketplace.order :as order]
             [marketplace.persist :as persist]
