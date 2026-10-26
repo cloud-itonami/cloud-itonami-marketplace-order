@@ -7,12 +7,17 @@
  :deps {
         ;; kotoba.test (clojure.test-compatible surface), not clojure.test --
         ;; scripts/migrate-clojure-test-to-kotoba-test.cljk. Explicit floor.
-        io.github.kotoba-lang/test {:git/url "https://github.com/kotoba-lang/test.git"
-                                    :git/sha "2ab4885f99fd25552d380d0f6b0b54c5a72eb7ae"}
+        io.github.kotoba-lang/test
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "7e1dbe0aece831138e6106c59d2b26375d0f60c4"
+         :deps/root "lib/kotoba.test"}
         ;; kotoba.lang.text, not clojure.string. Pinned as an explicit floor:
         ;; tools.deps takes the NEWEST sha it is shown, so without a floor here
         ;; this repo silently rides whatever a sibling happens to name.
-        io.github.kotoba-lang/text {:git/sha "73bdb13ae7a3d004b44bca08be03a3191157a38f"}
+        io.github.kotoba-lang/text
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "7e1dbe0aece831138e6106c59d2b26375d0f60c4"
+         :deps/root "lib/kotoba.text"}
        io.github.com-junkawasaki/langgraph-clj
         {:git/url "https://github.com/kotoba-lang/langgraph.git"
          :git/sha "577a59a9d5eb3ef90b81342f4673973f481ff7f4"}
@@ -21,16 +26,18 @@
         ;; credential it reads. This actor composes the other actors'
         ;; outputs; it re-implements none of their rules.
         io.github.kotoba-lang/marketplace
-        {:git/url "https://github.com/kotoba-lang/marketplace.git"
-         :git/sha "2bdd9b6bc7876afa5e081f66f9ed2deb24d4b648"}
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "7e1dbe0aece831138e6106c59d2b26375d0f60c4"
+         :deps/root "lib/kotoba.marketplace"}
         ;; The kotobase.net client, for the HOST half only
         ;; (orderops.edge.worker): q / pull / datoms / transact with a
         ;; per-request CACAO. This replaced a direct kotobase-storage-d1
         ;; embedding that bypassed the service's authorization entirely and
         ;; hand-rolled a query stub in place of q/pull.
         io.github.kotoba-lang/kotobase-client
-        {:git/url "https://github.com/kotoba-lang/kotobase-client.git"
-         :git/sha "f88a46930e4209c4346c0ef78f3795a948bf73b6"}}
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "7e1dbe0aece831138e6106c59d2b26375d0f60c4"
+         :deps/root "lib/kotoba.kotobaseClient"}}
  :aliases
  {;; This alias held an :override-deps entry for the retired coordinate
   ;; io.github.com-junkawasaki/langchain-clj. langgraph declares the same
@@ -43,8 +50,9 @@
                 {:git/url "https://github.com/kotoba-lang/compiler.git"
                  :git/sha "c8a9f7ef16ad8c605749e56c3bc4c73607545bec"}
                 io.github.kotoba-lang/kotoba-component
-                {:git/url "https://github.com/kotoba-lang/kotoba-component.git"
-                 :git/sha "99275e24570265ecba91fd4026d993c135a02362"}}
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "7e1dbe0aece831138e6106c59d2b26375d0f60c4"
+         :deps/root "lib/kotoba.kotobaComponent"}}
    :main-opts ["-m" "kotoba.compiler.cli"]}
   :run {:main-opts ["-m" "orderops.sim"]}
   :test {:extra-paths ["test"]
@@ -52,8 +60,9 @@
                       {:git/url "https://github.com/kotoba-lang/compiler.git"
                        :git/sha "c8a9f7ef16ad8c605749e56c3bc4c73607545bec"}
                       io.github.kotoba-lang/kotoba-component
-                      {:git/url "https://github.com/kotoba-lang/kotoba-component.git"
-                       :git/sha "99275e24570265ecba91fd4026d993c135a02362"}
+        {:git/url "https://github.com/kotoba-lang/kotoba.git"
+         :git/sha "7e1dbe0aece831138e6106c59d2b26375d0f60c4"
+         :deps/root "lib/kotoba.kotobaComponent"}
                       io.github.cognitect-labs/test-runner
                       {:git/tag "v0.5.1" :git/sha "dfb30dd6605cb6c0efc275e1df1736f6e90d4d73"}}
          :main-opts ["-m" "cognitect.test-runner"]
